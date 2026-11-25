@@ -1,0 +1,20 @@
+[package]
+name = "e-means"
+version = "0.1.0"
+edition = "2024"
+description = "Rust port of Meta FAIR's e-means: outperforming k-means in one-tenth the epochs"
+license = "MIT"
+
+[dependencies]
+rand = "0.9"
+rayon = "1"
+thiserror = "2"
+
+[features]
+default = ["accelerate"]
+accelerate = []
+
+[profile.release]
+opt-level = 3
+lto = "thin"
+codegen-units = 1
