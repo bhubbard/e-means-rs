@@ -41,3 +41,36 @@ let assigned = em.assign(&data)?;
 cargo test
 cargo run --release --bin bench_compare
 ```
+
+## Benchmarks (Apple M3 Pro, Release Build)
+
+### e-means vs Lloyd's k-means
+
+| Workload | N | d | K | e-means | e-means Loss | Lloyd's | Lloyd Loss | Speedup | Loss Delta | Splits |
+|---|---:|---:|---:|---|---:|---|---:|---:|---:|---:|
+| Euclidean High-D (3ep) | 50000 | 64 | 256 | 3.0 ep (0.066s) | 16.7439 | 25 ep (0.099s) | 17.6293 | 1.52x | -5.02% | 912 |
+| Euclidean High-D (5ep) | 50000 | 64 | 256 | 5.0 ep (0.087s) | 17.2852 | 25 ep (0.121s) | 17.6293 | 1.39x | -1.95% | 932 |
+| Euclidean Low-D (Quality) | 100000 | 16 | 256 | 3.0 ep (0.147s) | 2.2756 | 25 ep (0.124s) | 2.8435 | 0.85x | -19.97% | 1250 |
+| Euclidean Large (128D) | 100000 | 128 | 512 | 3.0 ep (0.214s) | 41.1182 | 25 ep (0.397s) | 35.2341 | 1.85x | +16.70% | 1253 |
+| Spherical (64D) | 50000 | 64 | 256 | 3.0 ep (0.059s) | 0.1165 | 25 ep (0.076s) | 0.2106 | 1.28x | -44.70% | 197 |
+
+### Backend Comparison (`n=50000, d=64, k=256, 3 epochs, CostBased`)
+
+| Backend | Wall Time (s) | Speedup vs Scalar | Final Loss | Splits |
+|---|---:|---:|---:|---:|
+| Scalar (1-thread) | 1.210 | 1.00x | 13.5658 | 790 |
+| PureRust (Rayon) | 0.195 | 6.20x | 13.5658 | 790 |
+| Accelerate (BLAS+Rayon) | 0.058 | 20.94x | 13.5658 | 790 |
+
+### Precision / Quantized E-means (`n=50000, d=64, k=256, 5 epochs`)
+
+| Representation | Wall Time (s) | Final Loss (on FP32 x) | Delta vs FP32 |
+|---|---:|---:|---:|
+| FP32 | 0.066 | 16.2754 | +0.00% |
+| INT8 | 0.068 | 16.6151 | +2.09% |
+| FP8 E4M3 | 0.084 | 13.0040 | -20.10% |
+
+### Sharded & IVF-Flat (`n=50000, d=64, k=1024`)
+
+- `ShardedEmeans` (4 shards, 3 ep): `0.618s`, Loss `9.4830`, Splits `2323`
+- `IndexIVFFlat` 2-NN (`nlist=64, nprobe=4`, 10,000 queries): `0.0247s` (`97.5%` recall@1, `ndis=4927550`) vs Exhaustive `Accelerate` `0.0034s`
